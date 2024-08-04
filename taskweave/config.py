@@ -21,7 +21,7 @@ class BaseOptions(object):
     def initialize(self):
         self.initialized = True
         parser = argparse.ArgumentParser()
-        parser.add_argument("--dset_name", type=str, choices=["hl", 'tvsum'])
+        parser.add_argument("--dset_name", type=str, choices=["hl", 'tvsum', 'charadesSTA', 'tacos', 'nlq'])
         parser.add_argument("--dset_domain", type=str, choices=["BK", "BT", "DS", "FM", "GA", "MS", "PK", "PR", "VT", "VU"], 
                             help="Domain to train for tvsum dataset. (Only used for tvsum)")
         
@@ -61,6 +61,12 @@ class BaseOptions(object):
                             help="if --resume_all, load optimizer/scheduler/epoch as well")
         parser.add_argument("--start_epoch", type=int, default=None,
                             help="if None, will be set automatically when using --resume_all")
+        
+        parser.add_argument('--m_classes', type=str, default=None)
+        parser.add_argument('--tgt_embed', action='store_true')
+        parser.add_argument('--cc_matching', action="store_true")
+        parser.add_argument('--class_anchor', action="store_true")
+        parser.add_argument("--pos_query", default=1, type=int, help="pos_query")
 
         # Data config
         parser.add_argument("--max_q_l", type=int, default=32)
