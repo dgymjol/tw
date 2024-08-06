@@ -1,8 +1,9 @@
+
 dset_name=hl
 ctx_mode=video_tef
 v_feat_types=slowfast_clip
 t_feat_type=clip 
-results_root=results_crop
+results_root=results_base_crop
 exp_id=exp
 
 ######## data paths
@@ -37,34 +38,14 @@ fi
 #### training
 bsz=32
 
-gpunum=2
 
-# list="2018 2021 2022 2023 2024 2025"
+#### training
+bsz=32
 
-# for seed in $list
-# do
-#   echo $seed
+gpunum=0
 
-# CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
-# --dset_name ${dset_name} \
-# --ctx_mode ${ctx_mode} \
-# --train_path ${train_path} \
-# --eval_path ${eval_path} \
-# --eval_split_name ${eval_split_name} \
-# --v_feat_dirs ${v_feat_dirs[@]} \
-# --v_feat_dim ${v_feat_dim} \
-# --t_feat_dir ${t_feat_dir} \
-# --t_feat_dim ${t_feat_dim} \
-# --bsz ${bsz} \
-# --results_root ${results_root} \
-# --exp_id base_${seed}_crop_random \
-# --seed ${seed} \
-# ${@:1}
-  
-# done
 
-seed=2018
-
+seed=2022
 
 CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --dset_name ${dset_name} \
@@ -78,7 +59,56 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id base_${seed}_crop_random \
+--exp_id base_crop3_${seed} \
+--seed ${seed} \
+--crop \
+--fore_min 15 \
+--back_min 15 \
+--mid_min 10 \
+--crop_random \
+${@:1}
+
+CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id base_crop4_${seed} \
+--seed ${seed} \
+--crop \
+--fore_min 10 \
+--back_min 10 \
+--mid_min 10 \
+--crop_random \
+${@:1}
+
+
+list="2023 2024 2025"
+
+for seed in $list
+do
+  echo $seed
+
+CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id base_crop1_${seed} \
 --seed ${seed} \
 --crop \
 --fore_min 10 \
@@ -99,7 +129,7 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id base_${seed}_crop_random \
+--exp_id base_crop2_${seed} \
 --seed ${seed} \
 --crop \
 --fore_min 15 \
@@ -120,12 +150,12 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id base_${seed}_crop_random \
+--exp_id base_crop3_${seed} \
 --seed ${seed} \
 --crop \
 --fore_min 15 \
 --back_min 15 \
---mid_min 20 \
+--mid_min 10 \
 --crop_random \
 ${@:1}
 
@@ -141,133 +171,13 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id base_${seed}_crop_random \
---seed ${seed} \
---crop \
---fore_min 20 \
---back_min 20 \
---mid_min 20 \
---crop_random \
-${@:1}
-
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop_random \
---seed ${seed} \
---crop \
---fore_min 20 \
---back_min 20 \
---mid_min 30 \
---crop_random \
-${@:1}
-
-
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop \
+--exp_id base_crop4_${seed} \
 --seed ${seed} \
 --crop \
 --fore_min 10 \
 --back_min 10 \
---mid_min 15 \
+--mid_min 10 \
+--crop_random \
 ${@:1}
 
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop \
---seed ${seed} \
---crop \
---fore_min 15 \
---back_min 15 \
---mid_min 15 \
-${@:1}
-
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop \
---seed ${seed} \
---crop \
---fore_min 15 \
---back_min 15 \
---mid_min 20 \
-${@:1}
-
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop \
---seed ${seed} \
---crop \
---fore_min 20 \
---back_min 20 \
---mid_min 20 \
-${@:1}
-
-CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
---dset_name ${dset_name} \
---ctx_mode ${ctx_mode} \
---train_path ${train_path} \
---eval_path ${eval_path} \
---eval_split_name ${eval_split_name} \
---v_feat_dirs ${v_feat_dirs[@]} \
---v_feat_dim ${v_feat_dim} \
---t_feat_dir ${t_feat_dir} \
---t_feat_dim ${t_feat_dim} \
---bsz ${bsz} \
---results_root ${results_root} \
---exp_id base_${seed}_crop \
---seed ${seed} \
---crop \
---fore_min 20 \
---back_min 20 \
---mid_min 30 \
-${@:1}
+done

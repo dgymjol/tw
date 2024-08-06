@@ -1,3 +1,6 @@
+import torch
+from copy import deepcopy
+
 def count_parameters(model, verbose=True):
     """Count number of parameters in PyTorch model,
     References: https://discuss.pytorch.org/t/how-do-i-check-the-number-of-parameters-of-a-model/4325/7.

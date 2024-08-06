@@ -10,6 +10,7 @@ from utils.tensor_utils import pad_sequences_1d
 from taskweave.span_utils import span_xx_to_cxw
 from torchtext import vocab
 import torch.nn as nn
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,8 @@ class StartEndDataset(Dataset):
                  max_q_l=32, max_v_l=75, data_ratio=1.0, ctx_mode="video",
                  normalize_v=True, normalize_t=True, load_labels=True,
                  clip_len=2, max_windows=5, span_loss_type="l1", txt_drop_ratio=0,
-                 dset_domain=None, m_classes = None):
+                 dset_domain=None, m_classes = None, crop=False,
+                 fore_min=20, back_min=130, mid_min=30, crop_random=False):
         self.dset_name = dset_name
         self.data_path = data_path
         self.data_ratio = data_ratio
@@ -100,7 +102,13 @@ class StartEndDataset(Dataset):
         self.txt_drop_ratio = txt_drop_ratio
         if "val" in data_path or "test" in data_path:
             assert txt_drop_ratio == 0
-
+        self.crop = crop
+        self.fore_min = fore_min
+        self.back_min = back_min
+        self.mid_min = mid_min
+        self.crop_random = crop_random
+        
+        
         # checks
         assert q_feat_type in self.Q_FEAT_TYPES
 
@@ -145,6 +153,12 @@ class StartEndDataset(Dataset):
         else:
             self.m_vals = None
 
+    def crop_clip_index(self, start_index, end_index, non_idx=False):
+        candidates = list(range(start_index + 2, end_index, 2))
+        if non_idx:
+            candidates.append(-1) # not crop
+        return random.sample(candidates, 1)[0]
+           
     def load_data(self):
         datalist = load_jsonl(self.data_path)
         if self.data_ratio != 1:
@@ -152,6 +166,61 @@ class StartEndDataset(Dataset):
             datalist = datalist[:n_examples]
             logger.info("Using {}% of the data: {} examples"
                         .format(self.data_ratio * 100, n_examples))
+            
+        if self.crop:
+
+            org_datalist = deepcopy(datalist)
+            datalist = []
+
+            for data in org_datalist:
+                data["crop_timestamp"] = [(0, self.max_v_l)]
+                datalist.append(data)
+
+                moments = data['relevant_windows']
+
+                # STEP 1: make crop index list
+                if len(moments) > 1:
+                    continue
+                
+                s, e = moments[0]
+                end, mlen = data["duration"], e-s
+
+                if (mlen >= self.mid_min) and s >= self.fore_min and end - e >= self.back_min:
+                    
+                    if self.crop_random:
+                        f = self.crop_clip_index(0, s)
+                        b = self.crop_clip_index(e, end)
+                        m = s + ((mlen // 2) // 2) * 2
+                        m1 = self.crop_clip_index(s, m)
+                        m2 = self.crop_clip_index(m, e)
+                    else:
+                        f, b = s // 2, e + ((end - e) // 2) // 2 * 2
+                        m1 = s + ((mlen // 2) // 3) * 2
+                        m2 = e - ((mlen // 2) // 3) * 2
+                        
+                    new_data = deepcopy(data)
+                    new_data['relevant_clip_ids'] = []
+                    new_data['relevant_windows'] = []
+                    for start_idx, s_crop_idx, e_crop_idx in [(s-f, m2, e), 
+                                                                (s - f + e - m2 + end - b, m1, m2), 
+                                                                (s - f + e - m2 + end - b + m2 - m1 + f, s, m1)]:
+                        
+                        start_idx_div2 = 0 if start_idx == 0 else start_idx // 2
+                        s_crop_idx_div2 = 0 if s_crop_idx == 0 else s_crop_idx // 2
+                        e_crop_idx_div2 = 0 if e_crop_idx == 0 else e_crop_idx // 2
+                        
+                        for ci in range(e_crop_idx_div2 - s_crop_idx_div2):
+                            new_data['relevant_clip_ids'].append(start_idx_div2 + ci)
+
+                        new_data['relevant_windows'].append([start_idx, start_idx + (e_crop_idx - s_crop_idx)])
+
+                    new_data['crop_timestamp'] = [(f // 2, s // 2), (m2 // 2, e // 2), (b // 2, end // 2), 
+                                                  (m1 // 2, m2 // 2), (0, f // 2), (s // 2, m1 // 2), (e // 2, b // 2)]
+                    datalist.append(new_data)
+                    
+                    assert len(new_data['saliency_scores']) == len(new_data['relevant_clip_ids'])
+
+            logger.info(f"Oracle Crop : {len(org_datalist)} -> {len(datalist)}")
         return datalist
 
     def __len__(self):
@@ -165,8 +234,12 @@ class StartEndDataset(Dataset):
             model_inputs["query_feat"] = self.get_query(meta["query"])
         else:
             model_inputs["query_feat"] = self._get_query_feat_by_qid(meta["qid"])  # (Dq, ) or (Lq, Dq)
+            
         if self.use_video:
-            model_inputs["video_feat"] = self._get_video_feat_by_vid(meta["vid"])  # (Lv, Dv)
+            if self.crop:
+                model_inputs["video_feat"] = self._get_video_crop_feat_by_vid(meta["vid"], meta["crop_timestamp"])  # (Lv, Dv)
+            else:
+                model_inputs["video_feat"] = self._get_video_feat_by_vid(meta["vid"])  # (Lv, Dv)
             ctx_l = len(model_inputs["video_feat"])
         else:
             ctx_l = self.max_v_l
@@ -534,6 +607,72 @@ class StartEndDataset(Dataset):
             v_feat = np.concatenate(v_feat_list, axis=1)
         return torch.from_numpy(v_feat)  # (Lv, D)
 
+
+    def _get_video_crop_feat_by_vid(self, vid, crop_timestamp):
+        if self.dset_name == 'tvsum':
+            v_feat_list = []
+            for _feat_dir in self.v_feat_dirs:
+                _feat_path = join(_feat_dir, f"{vid}_rgb.npy")
+                _feat_rgb = np.load(_feat_path)[:self.max_v_l].astype(np.float32)
+
+                _feat_path = join(_feat_dir, f"{vid}_opt.npy")
+                _feat_opt = np.load(_feat_path)[:self.max_v_l].astype(np.float32)
+                
+                _feat = np.concatenate([_feat_rgb, _feat_opt], axis=-1)
+                # _feat = _feat_rgb
+                if self.normalize_v:
+                    _feat = l2_normalize_np_array(_feat)
+                v_feat_list.append(_feat)
+            # some features are slightly longer than the others
+            min_len = min([len(e) for e in v_feat_list])
+            v_feat_list = [e[:min_len] for e in v_feat_list]
+            v_feat = np.concatenate(v_feat_list, axis=1)
+
+        elif self.dset_name == 'youtube_uni':
+            v_feat_list = []
+            for _feat_dir in self.v_feat_dirs:
+                # Only single npz files per directory
+                try:
+                    _feat_path = join(_feat_dir, f"{vid}.npz")
+                    _feat = np.load(_feat_path)["features"][:self.max_v_l].astype(np.float32)
+                except:
+                    _feat_path = join(_feat_dir, f"{vid}.npy")
+                    _feat = np.load(_feat_path)[:self.max_v_l].astype(np.float32)
+                
+                # _feat = _feat_rgb
+                if self.normalize_v:
+                    _feat = l2_normalize_np_array(_feat)
+                v_feat_list.append(_feat)
+            # some features are slightly longer than the others
+            min_len = min([len(e) for e in v_feat_list])
+            v_feat_list = [e[:min_len] for e in v_feat_list] # TODO do we need to cut the length over the min_len?
+            v_feat = np.concatenate(v_feat_list, axis=1)
+
+        else:
+            v_feat_list = []
+            for _feat_dir in self.v_feat_dirs:
+                try:
+                    _feat_path = join(_feat_dir, f"{vid}.npz")
+                    _feat = np.load(_feat_path)["features"][:self.max_v_l].astype(np.float32)
+                except:
+                    _feat_path = join(_feat_dir, f"{vid}.npy")
+                    _feat = np.load(_feat_path)[:self.max_v_l].astype(np.float32)
+                    
+                # relocate clips
+                _feats = []
+                for s, e in crop_timestamp:
+                    _feats.append(_feat[s:e].astype(np.float32))
+                _feats = np.concatenate(_feats, axis=0)
+                
+                
+                if self.normalize_v:
+                    _feat = l2_normalize_np_array(_feats)
+                v_feat_list.append(_feats)
+            # some features are slightly longer than the others
+            min_len = min([len(e) for e in v_feat_list])
+            v_feat_list = [e[:min_len] for e in v_feat_list]
+            v_feat = np.concatenate(v_feat_list, axis=1)
+        return torch.from_numpy(v_feat)  # (Lv, D)
 
 
 def start_end_collate(batch):
