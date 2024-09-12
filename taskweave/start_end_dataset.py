@@ -153,12 +153,6 @@ class StartEndDataset(Dataset):
         else:
             self.m_vals = None
 
-    def crop_clip_index(self, start_index, end_index, non_idx=False):
-        candidates = list(range(start_index + 2, end_index, 2))
-        if non_idx:
-            candidates.append(-1) # not crop
-        return random.sample(candidates, 1)[0]
-           
     def load_data(self):
         datalist = load_jsonl(self.data_path)
         if self.data_ratio != 1:
@@ -166,61 +160,7 @@ class StartEndDataset(Dataset):
             datalist = datalist[:n_examples]
             logger.info("Using {}% of the data: {} examples"
                         .format(self.data_ratio * 100, n_examples))
-            
-        if self.crop:
-
-            org_datalist = deepcopy(datalist)
-            datalist = []
-
-            for data in org_datalist:
-                data["crop_timestamp"] = [(0, self.max_v_l)]
-                datalist.append(data)
-
-                moments = data['relevant_windows']
-
-                # STEP 1: make crop index list
-                if len(moments) > 1:
-                    continue
-                
-                s, e = moments[0]
-                end, mlen = data["duration"], e-s
-
-                if (mlen >= self.mid_min) and s >= self.fore_min and end - e >= self.back_min:
-                    
-                    if self.crop_random:
-                        f = self.crop_clip_index(0, s)
-                        b = self.crop_clip_index(e, end)
-                        m = s + ((mlen // 2) // 2) * 2
-                        m1 = self.crop_clip_index(s, m)
-                        m2 = self.crop_clip_index(m, e)
-                    else:
-                        f, b = s // 2, e + ((end - e) // 2) // 2 * 2
-                        m1 = s + ((mlen // 2) // 3) * 2
-                        m2 = e - ((mlen // 2) // 3) * 2
-                        
-                    new_data = deepcopy(data)
-                    new_data['relevant_clip_ids'] = []
-                    new_data['relevant_windows'] = []
-                    for start_idx, s_crop_idx, e_crop_idx in [(s-f, m2, e), 
-                                                                (s - f + e - m2 + end - b, m1, m2), 
-                                                                (s - f + e - m2 + end - b + m2 - m1 + f, s, m1)]:
-                        
-                        start_idx_div2 = 0 if start_idx == 0 else start_idx // 2
-                        s_crop_idx_div2 = 0 if s_crop_idx == 0 else s_crop_idx // 2
-                        e_crop_idx_div2 = 0 if e_crop_idx == 0 else e_crop_idx // 2
-                        
-                        for ci in range(e_crop_idx_div2 - s_crop_idx_div2):
-                            new_data['relevant_clip_ids'].append(start_idx_div2 + ci)
-
-                        new_data['relevant_windows'].append([start_idx, start_idx + (e_crop_idx - s_crop_idx)])
-
-                    new_data['crop_timestamp'] = [(f // 2, s // 2), (m2 // 2, e // 2), (b // 2, end // 2), 
-                                                  (m1 // 2, m2 // 2), (0, f // 2), (s // 2, m1 // 2), (e // 2, b // 2)]
-                    datalist.append(new_data)
-                    
-                    assert len(new_data['saliency_scores']) == len(new_data['relevant_clip_ids'])
-
-            logger.info(f"Oracle Crop : {len(org_datalist)} -> {len(datalist)}")
+          
         return datalist
 
     def __len__(self):
@@ -237,7 +177,10 @@ class StartEndDataset(Dataset):
             
         if self.use_video:
             if self.crop:
-                model_inputs["video_feat"] = self._get_video_crop_feat_by_vid(meta["vid"], meta["crop_timestamp"])  # (Lv, Dv)
+                if 'org_clip_ids_order' in meta.keys():
+                    model_inputs["video_feat"] = self._get_video_crop_feat_by_vid(meta["vid"], meta["org_clip_ids_order"])  # (Lv, Dv)
+                else:
+                    model_inputs["video_feat"] = self._get_video_feat_by_vid(meta["vid"])  # (Lv, Dv)
             else:
                 model_inputs["video_feat"] = self._get_video_feat_by_vid(meta["vid"])  # (Lv, Dv)
             ctx_l = len(model_inputs["video_feat"])
@@ -608,7 +551,7 @@ class StartEndDataset(Dataset):
         return torch.from_numpy(v_feat)  # (Lv, D)
 
 
-    def _get_video_crop_feat_by_vid(self, vid, crop_timestamp):
+    def _get_video_crop_feat_by_vid(self, vid, org_clip_ids_order):
         if self.dset_name == 'tvsum':
             v_feat_list = []
             for _feat_dir in self.v_feat_dirs:
@@ -660,7 +603,7 @@ class StartEndDataset(Dataset):
                     
                 # relocate clips
                 _feats = []
-                for s, e in crop_timestamp:
+                for s, e in org_clip_ids_order:
                     _feats.append(_feat[s:e].astype(np.float32))
                 _feats = np.concatenate(_feats, axis=0)
                 
