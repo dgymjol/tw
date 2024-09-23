@@ -37,17 +37,18 @@ fi
 #### training
 bsz=32
 
-gpunum=0
-
-results_root='result_new_cut_aug'
+gpunum=1
 
 
-list="0 1 2 3 5"
-for aug_seed in $list
+
+results_root='result_length_aug_'
+
+
+list="2025 2024 2023 2022 2021 2020 2019 2018 2017 2016"
+
+for seed in $list
 do
-  echo $aug_seed
-  
-train_path=data/highlight_train_crop_release_seed_${aug_seed}.jsonl
+  echo $seed
 
 CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --dset_name ${dset_name} \
@@ -61,21 +62,16 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id lad_augseed_${aug_seed}_seed_2024 \
+--exp_id lad_bothaug_mcls_4_${seed} \
 --crop \
+--merge \
+--thres_crop 10 \
+--thres_merge 30 \
 --m_classes "[12, 36, 65, 150]" \
---cc_matching \
 --tgt_embed \
---seed 2023 \
+--cc_matching \
+--seed ${seed} \
 ${@:1}
-done
-
-list="0 1 2 3 5"
-for aug_seed in $list
-do
-  echo $aug_seed
-  
-train_path=data/highlight_train_crop_release_seed_${aug_seed}.jsonl
 
 CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --dset_name ${dset_name} \
@@ -89,21 +85,16 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id lad_augseed_${aug_seed}_seed_2024 \
+--exp_id lad_bothaug_mcls_3_1_${seed} \
 --crop \
---m_classes "[12, 36, 65, 150]" \
---cc_matching \
+--merge \
+--thres_crop 10 \
+--thres_merge 30 \
+--m_classes "[8.33, 26.60, 56, 150]" \
 --tgt_embed \
---seed 2022 \
+--cc_matching \
+--seed ${seed} \
 ${@:1}
-done
-
-list=""
-for aug_seed in $list
-do
-  echo $aug_seed
-  
-train_path=data/highlight_train_crop_release_seed_${aug_seed}.jsonl
 
 CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --dset_name ${dset_name} \
@@ -117,34 +108,16 @@ CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.p
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id lad_augseed_${aug_seed} \
+--exp_id lad_bothaug_mcls_3_2_${seed} \
 --crop \
---m_classes "[12, 36, 65, 150]" \
---cc_matching \
+--merge \
+--thres_crop 10 \
+--thres_merge 30 \
+--m_classes "[14.50, 31, 61.67, 150]" \
 --tgt_embed \
+--cc_matching \
+--seed ${seed} \
 ${@:1}
+
 done
 
-# list="4 0 1 2 3 5"
-# for aug_seed in $list
-# do
-#   echo $aug_seed
-  
-# train_path=data/highlight_train_crop_release_seed_${aug_seed}.jsonl
-
-# CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
-# --dset_name ${dset_name} \
-# --ctx_mode ${ctx_mode} \
-# --train_path ${train_path} \
-# --eval_path ${eval_path} \
-# --eval_split_name ${eval_split_name} \
-# --v_feat_dirs ${v_feat_dirs[@]} \
-# --v_feat_dim ${v_feat_dim} \
-# --t_feat_dir ${t_feat_dir} \
-# --t_feat_dim ${t_feat_dim} \
-# --bsz ${bsz} \
-# --results_root ${results_root} \
-# --exp_id augseed_${aug_seed} \
-# --crop \
-# ${@:1}
-# done

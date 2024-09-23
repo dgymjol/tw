@@ -37,8 +37,20 @@ fi
 #### training
 bsz=32
 
+gpunum=0
 
-PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
+results_root='result_new_cut_aug'
+aug_seed=0
+
+
+list="0 1 2 3 4 5"
+for aug_seed in $list
+do
+  echo $aug_seed
+  
+train_path=data/highlight_train_aug_release_seed_${aug_seed}.jsonl
+
+CUDA_VISIBLE_DEVICES=${gpunum} PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --dset_name ${dset_name} \
 --ctx_mode ${ctx_mode} \
 --train_path ${train_path} \
@@ -50,5 +62,10 @@ PYTHONPATH=$PYTHONPATH:. python taskweave/train.py \
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id ${exp_id} \
+--exp_id lad_augseed_${aug_seed} \
+--crop \
+--m_classes "[12, 36, 65, 150]" \
+--cc_matching \
+--tgt_embed \
 ${@:1}
+done
