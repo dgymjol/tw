@@ -155,12 +155,6 @@ class BaseOptions(object):
                                  "(or non-minimum suppression for distance)"
                                  "to post-processing the predictions. "
                                  "-1: do not use nms. [0, 1]")
-        
-
-        parser.add_argument('--crop', action='store_true')
-        parser.add_argument('--merge', action='store_true')
-        parser.add_argument("--thres_crop", type=int, default=10)
-        parser.add_argument("--thres_merge", type=int, default=10)
 
         parser.add_argument('--loss_m_classes', type=str, default=None)
 
